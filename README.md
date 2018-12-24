@@ -1,8 +1,12 @@
 # FraudDetectionMLVisualize
 
-Visualize tool for viewing datasets in 3d using Dash and Plotly.
+## Visualize tool for viewing datasets in 3d using Dash and Plotly.
 
-Current features:
+### Current features:
   * Enable/disable non-frauds
   * Set threshold
   * Click on marker to see additional info about the marker
+### How to run
+  * Clone repository
+  * Add as a python project to IDEA/PyCharm
+  * Run as flask server (automatically)
