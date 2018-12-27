@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 
 import pandas as pd
 import dash
@@ -8,6 +7,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 import os
+import colorlover as cl
 
 
 # Finds csv files
@@ -20,8 +20,9 @@ def find_csv_filenames(path_to_dir, suffix=".csv"):
 DATA_DIR_PATH = os.path.join(os.path.curdir, 'data/')
 avaliable_data_sets = find_csv_filenames(DATA_DIR_PATH)
 raw_data = pd.read_csv("data/PCA_test_set.csv")
+
 # Instantiate server
-app = dash.Dash("Data Visualiser")
+app = dash.Dash("Fraud Data Explorer")
 
 
 # Takes raw data, produces frauds, nonfrauds based on given threshold or actually from the data.
@@ -71,26 +72,28 @@ def get_scatter_3d(df, name, is_frauds, mistakes=False, false_negative=False):
     # Color mistakes: FN - black, FP - yellow and adds additional field to custom data
     if mistakes:
         if false_negative:
-            color = 'black'
+            color_info = {'color': 'black'}
             mistake_info = 'False Negative'
         else:
-            color = 'gold'
+            color_info = {'color': 'gold'}
             mistake_info = 'False Positive'
     else:
-        color = 'red'
+        color_info = dict(cmin=-2.0, cmax=1.0,
+                          color=df['y_probability'],
+                          colorscale=[[x / 10, y] for x in range(0, 10, 2) for y in
+                                      cl.to_rgb(cl.scales['5']['seq']['Reds'])])
         mistake_info = ''
 
     # Style the traces, basing on frads/non-frauds
     if is_frauds:
         marker_style = dict(
             size=abs(3 + df["Fraud_amount"] / 6000),
-            color=color,
             line=dict(
                 color='white',
                 width=0.5
             ),
             opacity=0.8
-        )
+            , **color_info)
     else:
         marker_style = dict(
             size=2,
@@ -194,12 +197,13 @@ def get_confusion_matrix(data, threshold, default_estimation=False):
 
 
 # Initial graph params
-graph_layout = go.Layout(
+graph_layout = dict(
+    autosize=True,
     legend=dict(x=-0.1, y=1.2),
     margin=dict(
         l=0,
         r=0,
-        b=0,
+        b=50,
         t=0
     )
 )
@@ -211,15 +215,15 @@ app.layout = html.Div([
     html.Div(hidden=True, id='current-dataset-name'),
     # dcc.Store(storage_type="local", id="current-dataset"),
 
-    html.H2('Fraud data visualize'),
+    html.H2('Fraud Data Explorer'),
     html.Div(className='row', children=[
         # Graph
         html.Div([
-            html.Label("Graph"),
+            html.Label("Visual representation in 3D Space"),
             html.Div(className='nine columns', children=[
                 dcc.Graph(
                     id='graph',
-                    figure=go.Figure(
+                    figure=dict(
                         data=get_simple_markers(raw_data),
                         layout=graph_layout,
                     ),
@@ -326,14 +330,19 @@ def update_slider(value):
     return "Selected threshold: {}".format(value)
 
 
-@app.callback(Output('graph', 'figure'),
+@app.callback(Output('graph-container', 'children'),
               [Input('dataset', 'value'),
                Input('mode-selector', 'value'),
                Input('threshold', 'value'),
                Input('nonfrauds', 'values'),
-               Input('mistakes', 'values')]
+               Input('mistakes', 'values')],
+              [State('graph', 'relayoutData')]
               )
-def update_graph(dataset, mode, threshold, with_non_frauds, mistakes):
+def update_graph(dataset, mode, threshold, with_non_frauds, mistakes, relayout_data):
+    # Keeping the zoom locked
+    print(relayout_data)
+
+    # Read the data
     new_data = pd.read_csv(DATA_DIR_PATH + dataset)
 
     if mode == 'default':
@@ -349,13 +358,17 @@ def update_graph(dataset, mode, threshold, with_non_frauds, mistakes):
                            threshold=threshold,
                            with_non_frauds=len(with_non_frauds) != 0,
                            mistakes=len(mistakes) != 0)
-
     # Updating the figure
-    figure = go.Figure(
-        data=data,
-        layout=graph_layout
-    )
-    return figure
+    result = dcc.Graph(
+        id='graph',
+        figure=dict(
+            data=data,
+            layout=graph_layout,
+        ),
+        relayoutData=relayout_data
+    ),
+
+    return result
 
 
 @app.callback(Output('class-info', 'children'),
@@ -379,12 +392,12 @@ def update_classificator_info(dataset, mode, threshold):
 
 def get_shapes_of_conf_mat(matrix):
     result = {
-        'tp': matrix['tp'].shape[0],
-        'tn': matrix['tn'].shape[0],
-        'fp': matrix['fp'].shape[0],
-        'fn': matrix['fn'].shape[0],
-        'precision': matrix['precision'],
-        'recall': matrix['recall']
+        'True Positive': matrix['tp'].shape[0],
+        'True Negative': matrix['tn'].shape[0],
+        'False Positive': matrix['fp'].shape[0],
+        'False Negative': matrix['fn'].shape[0],
+        'precision': '{:.3f}'.format(matrix['precision']),
+        'recall': '{:.3f}'.format(matrix['recall'])
     }
     return result
 
@@ -395,13 +408,7 @@ def update_marker_info(selected_data):
     if selected_data is None:
         return ''
     # Get marker's custom data and clean it up
-    print(selected_data)
     marker_info = cleanup_marker_data(selected_data)
-    # return html.Table(
-    #     # Header
-    #     [html.Tr([html.Th(column) for column in marker_info.keys()])] +
-    #     [html.Tr([html.Td(value) for value in marker_info.values()])]
-    # )
     return html.Table(
         [html.Tr([html.Th(key), html.Td(value)]) for key, value in zip(marker_info.keys(), marker_info.values())])
 
@@ -420,7 +427,7 @@ def cleanup_marker_data(raw_data):
     prep_data['X'] = prep_data.pop('C1')
     prep_data['Y'] = prep_data.pop('C2')
     prep_data['Z'] = prep_data.pop('C3')
-    prep_data['Fraud probability'] = prep_data.pop('y_probability')
+    prep_data['Fraud probability'] = '{:.2f}'.format(prep_data.pop('y_probability'))
     prep_data['Is fraud'] = 'Yes' if prep_data.pop('y_true') == 1 else 'No'
     prep_data['Fraud amount'] = prep_data.pop('Fraud_amount')
     prep_data['Mistake'] = prep_data.pop('Mistake') if 'Mistake' in prep_data else 'No'
