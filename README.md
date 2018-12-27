@@ -1,4 +1,4 @@
-# FraudDetectionMLVisualize
+# Fraud data explorer
 
 ## Visualize tool for viewing datasets in 3d using Dash and Plotly.
 
