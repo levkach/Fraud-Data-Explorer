@@ -7,7 +7,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 import os
-import colorlover as cl
+from util import colorscale
 
 
 # Finds csv files
@@ -78,10 +78,9 @@ def get_scatter_3d(df, name, is_frauds, mistakes=False, false_negative=False):
             color_info = {'color': 'gold'}
             mistake_info = 'False Positive'
     else:
-        color_info = dict(cmin=-2.0, cmax=1.0,
+        color_info = dict(cmin=0.0, cmax=1.0,
                           color=df['y_probability'],
-                          colorscale=[[x / 10, y] for x in range(0, 10, 2) for y in
-                                      cl.to_rgb(cl.scales['5']['seq']['Reds'])])
+                          colorscale=colorscale, colorbar=dict(title='Probability'))
         mistake_info = ''
 
     # Style the traces, basing on frads/non-frauds
