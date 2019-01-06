@@ -1,8 +1,17 @@
 """
 
-dataset_utils.py contains functions required for retrieving information about given dataset
+dataset_utils.py contains functions required for retrieving information about dataset
 
 """
+
+# Finds csv files
+import os
+
+
+def find_csv_filenames(path_to_dir, suffix=".csv"):
+    filenames = os.listdir(path_to_dir)
+    return [filename for filename in filenames if filename.endswith(suffix)]
+
 
 
 def get_classificator_info(data, threshold=0.5):
@@ -18,7 +27,6 @@ def get_classificator_info(data, threshold=0.5):
 
     # Train set.
     is_train_set = len(data.columns) == 6
-    print(len(data.columns))
     # Actual results
     actual_frauds = data[data.y == 1.0 if is_train_set else data.y_true == 1.0]
     actual_non_frauds = data[data.y == 0 if is_train_set else data.y_true == 0.0]
@@ -69,7 +77,7 @@ def get_shapes_of_conf_mat(matrix):
         'True Negative': matrix['tn'].shape[0],
         'False Positive': matrix['fp'].shape[0],
         'False Negative': matrix['fn'].shape[0],
-        'precision': '{:.3f}'.format(matrix['precision']),
-        'recall': '{:.3f}'.format(matrix['recall'])
+        'Precision': '{:.3f}'.format(matrix['precision']),
+        'Recall': '{:.3f}'.format(matrix['recall'])
     }
     return result

@@ -7,25 +7,32 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
-from util import *
 from dataset_utils import *
+
+# colorscale for probability colorbas
+colorscale = [[0.0, 'rgb(0,51,255)'],
+              [0.1, 'rgb(71,108,255)'],
+              [0.2, 'rgb(104,134,255)'],
+              [0.3, 'rgb(152,173,255)'],
+              [0.4, 'rgb(255,142,142)'],
+              [1.0, 'rgb(255,0,0)'],
+              ]
 
 # Initial dataset
 DATA_DIR_PATH = os.path.join(os.path.curdir, 'data/')
 available_datasets = find_csv_filenames(DATA_DIR_PATH)
-print(available_datasets)
-initial_dataset = pd.read_csv(DATA_DIR_PATH + available_datasets[0])
 
 # Initial graph params
 graph_layout = dict(
-    autosize=True,
+    # autosize=True,
     legend=dict(x=-0.1, y=1.2),
     margin=dict(
         l=0,
         r=0,
         b=50,
         t=0
-    )
+    ),
+    uirevison=True
 )
 
 # Instantiate server
@@ -64,7 +71,6 @@ app.layout = html.Div([
 
         html.Div(className='five columns', children=[
             # With or without nonfrauds
-            html.Label('Non-frauds'),
             dcc.Checklist(
                 id='nonfrauds',
                 options=[
@@ -265,11 +271,12 @@ def update_marker_info(selected_data, current_dataset):
 
 def cleanup_marker_data(raw_data, train=False):
     """
-    Cleans up raw data from the marker
+    Cleans up raw custom data of the marker
 
     :rtype: dict
     :param raw_data:
-    :return: cleaned-up dictionary with parameters of the case
+    :param train: if True, info for train set will be returned
+    :return: cleaned-up dictionary with parameters of the transaction
     """
 
     prep_data = raw_data['points'][0]['customdata']
@@ -309,7 +316,7 @@ def get_scatter_3d(df, name, is_frauds, mistakes=False, false_negative=False):
             color_info = {'color': 'black'}
             mistake_info = 'False Negative'
         else:
-            color_info = {'color': 'green'}
+            color_info = {'color': 'gold'}
             mistake_info = 'False Positive'
     else:
         # Implicit checking, if the dataset is train or test
@@ -317,10 +324,11 @@ def get_scatter_3d(df, name, is_frauds, mistakes=False, false_negative=False):
                                                                                       color=df['y_probability'],
                                                                                       colorscale=colorscale,
                                                                                       colorbar=dict(
+                                                                                          x=-0.1, y=0.45,
                                                                                           title='Probability'))
         mistake_info = ''
 
-    # Style the traces, basing on frads/non-frauds
+    # Style the traces, basing on frauds/non-frauds
     if is_frauds:
         marker_style = dict(
             size=abs(3 + df["Fraud_amount"] / 6000),
@@ -340,7 +348,7 @@ def get_scatter_3d(df, name, is_frauds, mistakes=False, false_negative=False):
             ),
             opacity=0.8
         )
-    # Add custom data for later show
+    # Add custom data for later showing
     custom_data = df.to_dict('records')
     if mistake_info != '':
         for row in custom_data:
